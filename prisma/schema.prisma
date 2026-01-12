@@ -12,3 +12,105 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum ProductStatus {
+  READY
+  INCOMING
+  PO
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  EXPIRED
+  CANCELLED
+  COMPLETED
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id    String @id @default(cuid())
+  name  String
+  brand String
+
+  processor String
+  ram       String
+  storage   String
+  gpu       String?
+  display   String?
+
+  originalPrice Int?
+  price         Int
+
+  status ProductStatus @default(READY)
+
+  stock    Int @default(0)
+  reserved Int @default(0)
+
+  images      String[]
+  description String?  @db.Text
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems OrderItem[]
+
+  @@index([status, isActive])
+  @@index([brand])
+}
+
+
+model Order {
+  id          String @id @default(cuid())
+  orderNumber String @unique
+
+  customerName  String
+  customerPhone String
+  notes         String? @db.Text
+
+  totalAmount Int
+
+  status      OrderStatus @default(PENDING)
+  expiresAt   DateTime
+  confirmedAt DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items OrderItem[]
+
+  @@index([status, expiresAt])
+  @@index([customerPhone])
+  @@index([orderNumber])
+}
+
+model OrderItem {
+  id String @id @default(cuid())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  // Snapshot (save harga yang dibayar, bukan harga asli)
+  productName  String
+  productPrice Int
+  quantity     Int
+  subtotal     Int
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+}
