@@ -1,0 +1,18 @@
+export const productPublicSelect = {
+  id: true,
+  name: true,
+  brand: true,
+  processor: true,
+  ram: true,
+  storage: true,
+  gpu: true,
+  display: true,
+  originalPrice: true,
+  price: true,
+  status: true,
+  stock: true,
+  reserved: true,
+  images: true,
+  description: true,
+  createdAt: true,
+};
