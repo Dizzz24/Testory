@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const product = await prisma.product.findFirst({
+    const product = await prisma.product.findUnique({
       where: {
         id,
         isActive: true,
