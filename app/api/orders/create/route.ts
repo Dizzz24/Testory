@@ -19,7 +19,7 @@ const createOrderSchema = z.object({
       z.object({
         productId: z.string(),
         quantity: z.number().int().min(1),
-      })
+      }),
     )
     .min(1, "Minimal pesan 1 produk")
     .max(1, "Hanya bisa memesan 1 produk per transaksi"), // ← NEW: Max 1 item
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     if (!validation.success) {
       return Response.json(
         { error: "Validation failed", details: validation.error.issues },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -53,11 +53,11 @@ export async function POST(req: NextRequest) {
         {
           error: "Terlalu banyak pesanan",
           message: `Anda sudah membuat 3 pesanan dalam 15 menit terakhir. Silakan coba lagi setelah ${resetDate.toLocaleTimeString(
-            "id-ID"
+            "id-ID",
           )}`,
           resetAt: resetDate.toISOString(),
         },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     if (!product) {
       return Response.json(
         { error: "Produk tidak ditemukan atau tidak tersedia" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
             requested: requestedQty,
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -107,55 +107,51 @@ export async function POST(req: NextRequest) {
       subtotal,
     };
 
-    // 6. Create order in transaction
-    const order = await prisma.$transaction(async (tx) => {
-      // Reserve stock (atomic update)
-      const updated = await tx.product.updateMany({
-        where: {
-          id: product.id,
-          stock: {
-            gte: product.reserved + requestedQty,
-          },
+    // 6. Create order (SOFT RESERVE - no stock changes)
+    const order = await prisma.order.create({
+      data: {
+        orderNumber: generateOrderNumber(),
+        customerName,
+        customerPhone: normalizedPhone,
+        notes: notes || null,
+        totalAmount: subtotal,
+        status: "PENDING",
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        items: {
+          create: [orderItem],
         },
-        data: {
-          reserved: { increment: requestedQty },
-        },
-      });
-
-      if (updated.count === 0) {
-        throw new Error(`Stok ${product.name} tidak cukup`);
-      }
-
-      // Create order
-      const newOrder = await tx.order.create({
-        data: {
-          orderNumber: generateOrderNumber(),
-          customerName,
-          customerPhone: normalizedPhone,
-          notes: notes || null,
-          totalAmount: subtotal,
-          status: "PENDING",
-          expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
-          items: {
-            create: [orderItem],
-          },
-        },
-        include: {
-          items: {
-            include: {
-              product: {
-                select: {
-                  name: true,
-                  images: true,
-                },
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                name: true,
+                images: true,
               },
             },
           },
         },
-      });
-
-      return newOrder;
+      },
     });
+
+    // 7. Generate WhatsApp link
+    const productName = order.items[0].productName;
+    const totalAmount = order.totalAmount.toLocaleString("id-ID");
+    const adminPhone = process.env.ADMIN_WHATSAPP_NUMBER || "6281314998265";
+
+    const waMessage =
+      `Halo Admin! Saya mau order:\n\n` +
+      `📦 *${productName}*\n` +
+      `💰 Total: *Rp ${totalAmount}*\n` +
+      `🔢 Order ID: *${order.orderNumber}*\n` +
+      `👤 Nama: ${customerName}\n` +
+      `📱 HP: ${normalizedPhone}\n\n` +
+      `Mohon info rekening untuk transfer. Terima kasih!`;
+
+    const whatsappLink = `https://wa.me/${adminPhone}?text=${encodeURIComponent(
+      waMessage,
+    )}`;
 
     return Response.json(
       {
@@ -166,9 +162,10 @@ export async function POST(req: NextRequest) {
           totalAmount: order.totalAmount,
           expiresAt: order.expiresAt,
           items: order.items,
+          whatsappLink,
         },
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error: any) {
     console.error("Error creating order:", error);
