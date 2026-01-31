@@ -133,11 +133,11 @@ export async function POST(req: NextRequest) {
 
     const waMessage =
       `Halo Admin! Saya mau order:\n\n` +
-      `📦 *${productName}*\n` +
-      `💰 Total: *Rp ${totalAmount}*\n` +
-      `🔢 Order ID: *${order.orderNumber}*\n` +
-      `👤 Nama: ${customerName}\n` +
-      `📱 HP: ${normalizedPhone}\n\n` +
+      `*${productName} (${order.items[0].quantity} unit)*\n` +
+      `Total: *Rp ${totalAmount}*\n` +
+      `Order ID: *${order.orderNumber}*\n` +
+      `Nama: ${customerName}\n` +
+      `HP: ${normalizedPhone}\n\n` +
       `Mohon info rekening untuk transfer. Terima kasih!`;
 
     const whatsappLink = `https://wa.me/${adminPhone}?text=${encodeURIComponent(
