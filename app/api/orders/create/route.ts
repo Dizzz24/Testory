@@ -122,16 +122,7 @@ export async function POST(req: NextRequest) {
         },
       },
       include: {
-        items: {
-          include: {
-            product: {
-              select: {
-                name: true,
-                images: true,
-              },
-            },
-          },
-        },
+        items: true,
       },
     });
 
